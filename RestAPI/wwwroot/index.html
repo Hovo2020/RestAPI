@@ -1,0 +1,105 @@
+﻿<!DOCTYPE html>
+<html>
+<head>
+    <title>Google OAuth Demo</title>
+    <meta name="google-signin-client_id" content="YOUR_CLIENT_ID">
+    <style>
+        body {
+            font-family: Arial, sans-serif;
+            margin: 40px;
+        }
+
+        .container {
+            max-width: 600px;
+            margin: 0 auto;
+        }
+
+        button {
+            padding: 10px 20px;
+            margin: 10px;
+            font-size: 16px;
+        }
+    </style>
+</head>
+<body>
+    <div class="container">
+        <h1>Google OAuth Demo</h1>
+        <div id="user-info" style="display:none;">
+            <h3>Welcome, <span id="user-name"></span></h3>
+            <p>Email: <span id="user-email"></span></p>
+            <img id="user-picture" src="" alt="Profile picture" style="border-radius: 50%;">
+            <button onclick="signOut()">Sign Out</button>
+        </div>
+
+        <div id="signin-button">
+            <div class="g-signin2" data-onsuccess="onGoogleSignIn"></div>
+        </div>
+    </div>
+
+    <script src="https://apis.google.com/js/platform.js" async defer></script>
+    <script>
+        function onGoogleSignIn(googleUser) {
+            const profile = googleUser.getBasicProfile();
+            const id_token = googleUser.getAuthResponse().id_token;
+
+            // Display user info
+            document.getElementById('user-name').textContent = profile.getName();
+            document.getElementById('user-email').textContent = profile.getEmail();
+            document.getElementById('user-picture').src = profile.getImageUrl();
+            document.getElementById('user-info').style.display = 'block';
+            document.getElementById('signin-button').style.display = 'none';
+
+            // Send token to your API
+            sendTokenToApi(id_token);
+        }
+
+        function sendTokenToApi(token) {
+            fetch('/api/auth/verify-google-token', {
+                method: 'POST',
+                headers: {
+                    'Content-Type': 'application/json',
+                },
+                body: JSON.stringify({ token: token })
+            })
+            .then(response => response.json())
+            .then(data => {
+                console.log('API response:', data);
+                // Store your API token for future requests
+                localStorage.setItem('apiToken', data.token);
+            })
+            .catch(error => console.error('Error:', error));
+        }
+
+        function signOut() {
+            const auth2 = gapi.auth2.getAuthInstance();
+            auth2.signOut().then(() => {
+                console.log('User signed out.');
+                document.getElementById('user-info').style.display = 'none';
+                document.getElementById('signin-button').style.display = 'block';
+                localStorage.removeItem('apiToken');
+            });
+        }
+
+        // Check if user is already signed in
+        function checkAuth() {
+            const auth2 = gapi.auth2.getAuthInstance();
+            if (auth2.isSignedIn.get()) {
+                const googleUser = auth2.currentUser.get();
+                onGoogleSignIn(googleUser);
+            }
+        }
+
+        // Initialize Google Auth
+        function initGoogleAuth() {
+            gapi.load('auth2', function() {
+                gapi.auth2.init({
+                    client_id: '1058366616841-ks07omtocl1bfsp55tjdukbmuiq2qcke.apps.googleusercontent.com'
+                }).then(checkAuth);
+            });
+        }
+
+        // Initialize when Google API loads
+        window.onGoogleLoad = initGoogleAuth;
+    </script>
+</body>
+</html>

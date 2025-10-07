@@ -35,7 +35,7 @@ namespace RestAPI.Controllers
         {
             if (result == null)
             {
-                throw new NotFoundException(resourceName ?? "Resource", "unknown");
+                throw new NotFoundException(resourceName ?? "Resource", 0);
             }
             return Ok(ApiResponse<T>.Ok(result));
         }

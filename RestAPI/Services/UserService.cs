@@ -4,20 +4,15 @@ using RestAPI.Models;
 
 namespace RestAPI.Services
 {
-    public class UserService : IUserService
+    public class UserService(IDatabaseService databaseService, ILogger<UserService> logger, IPasswordHasher passwordHasher) : IUserService
     {
-        private readonly IDatabaseService _databaseService;
-        private readonly ILogger<UserService> _logger;
+        private readonly IDatabaseService _databaseService = databaseService;
+        private readonly IPasswordHasher _passwordHasher = passwordHasher;
+        private readonly ILogger<UserService> _logger = logger;
 
-        public UserService(IDatabaseService databaseService, ILogger<UserService> logger)
+        public async Task<UserDto> GetUserByIdAsync(int id)
         {
-            _databaseService = databaseService;
-            _logger = logger;
-        }
-
-        public async Task<UserDto> GetUserByIdAsync(string id)
-        {
-            if (string.IsNullOrWhiteSpace(id))
+            if (id == 0)
             {
                 throw new Exceptions.ArgumentException("User ID cannot be empty", nameof(id));
             }
@@ -52,14 +47,16 @@ namespace RestAPI.Services
 
             try
             {
+                // Hash password before storing
+                var hashedPassword = _passwordHasher.HashPassword(request.Password);
+
                 var user = new User
                 {
-                    Id = Guid.NewGuid().ToString(),
                     Name = request.Name,
                     Email = request.Email,
                     Age = request.Age,
-                    Password = request.Password, // In real app, this would be hashed
-                    ConfirmPassword = request.Password, // Assuming same for confirmation
+                    Password = hashedPassword,
+                    ConfirmPassword = hashedPassword,
                     CreatedAt = DateTime.UtcNow,
                     IsActive = true
                 };
@@ -88,7 +85,7 @@ namespace RestAPI.Services
             }
         }
 
-        public async Task<UserDto> UpdateUserAsync(string id, UpdateUserRequest request)
+        public async Task<UserDto> UpdateUserAsync(int id, UpdateUserRequest request)
         {
             // First check if user exists
             var existingUser = await _databaseService.QuerySingleAsync<User>("sp_GetUserById", new { Id = id });
@@ -128,7 +125,7 @@ namespace RestAPI.Services
             return MapToDto(updatedUser);
         }
 
-        public async Task DeleteUserAsync(string id)
+        public async Task DeleteUserAsync(int id)
         {
             // First check if user exists
             var existingUser = await _databaseService.QuerySingleAsync<User>("sp_GetUserById", new { Id = id });
@@ -160,6 +157,82 @@ namespace RestAPI.Services
                 _logger.LogError(ex, "Error getting all users from database");
                 throw;
             }
+        }
+
+        public async Task<UserDto> AuthenticateAsync(string email, string password)
+        {
+            try
+            {
+                _logger.LogInformation("Authenticating user: {Email}", email);
+
+                var user = await _databaseService.QuerySingleAsync<User>("sp_GetUserByEmail", new { Email = email });
+
+                if (user == null || !user.IsActive)
+                {
+                    _logger.LogWarning("Authentication failed: User not found or inactive - {Email}", email);
+                    throw new Exceptions.NotFoundException("User", email);
+                }
+
+                // Verify password using hasher
+                if (!_passwordHasher.VerifyPassword(password, user.Password))
+                {
+                    _logger.LogWarning("Authentication failed: Invalid password for user - {Email}", email);
+                    throw new Exceptions.BusinessRuleException("Invalid email or password");
+                }
+
+                _logger.LogInformation("User authenticated successfully: {Email}", email);
+                return MapToDto(user);
+            }
+            catch (Exception ex)
+            {
+                _logger.LogError(ex, "Error authenticating user: {Email}", email);
+                throw;
+            }
+        }
+
+        public async Task<UserDto> GetUserByEmailAsync(string email)
+        {
+            var user = await _databaseService.QuerySingleAsync<User>("sp_GetUserByEmail", new { Email = email });
+
+            if (user == null)
+                throw new Exceptions.NotFoundException("User", email);
+
+            return MapToDto(user);
+        }
+
+        public async Task<UserDto> FindOrCreateOAuthUser(string email, string name, string provider)
+        {
+            try
+            {
+                // Try to find existing user
+                var existingUser = await GetUserByEmailAsync(email);
+                _logger.LogInformation("OAuth user found: {Email} via {Provider}", email, provider);
+                return existingUser;
+            }
+            catch (Exceptions.NotFoundException)
+            {
+                // Create new user for OAuth login
+                _logger.LogInformation("Creating new OAuth user: {Email} via {Provider}", email, provider);
+
+                var createRequest = new CreateUserRequest
+                {
+                    Name = name,
+                    Email = email,
+                    Age = 25, // Default age for OAuth users
+                    Password = GenerateSecureRandomPassword() // OAuth users don't need to know this
+                };
+
+                return await CreateUserAsync(createRequest);
+            }
+        }
+
+        private string GenerateSecureRandomPassword()
+        {
+            // Generate a secure random password for OAuth users
+            var randomBytes = new byte[32];
+            using var rng = System.Security.Cryptography.RandomNumberGenerator.Create();
+            rng.GetBytes(randomBytes);
+            return Convert.ToBase64String(randomBytes);
         }
 
         private UserDto MapToDto(User user) => new()

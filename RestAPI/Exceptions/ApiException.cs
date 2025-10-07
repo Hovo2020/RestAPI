@@ -19,8 +19,13 @@ namespace RestAPI.Exceptions
 
     public class NotFoundException : ApiException
     {
-        public NotFoundException(string resourceName, string resourceId)
+        public NotFoundException(string resourceName, int resourceId)
             : base($"{resourceName} with id {resourceId} was not found", 404, ErrorCodes.NotFound)
+        {
+        }
+
+        public NotFoundException(string resourceName, string resourceId)
+    : base($"{resourceName} with id {resourceId} was not found", 404, ErrorCodes.NotFound)
         {
         }
     }

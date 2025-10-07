@@ -5,7 +5,7 @@ namespace RestAPI.Models
 {
     public class User
     {
-        public string Id { get; set; } = Guid.NewGuid().ToString();
+        public int Id { get; set; }
 
         [Required(ErrorMessage = "Name is required")]
         [StringLength(50, MinimumLength = 2, ErrorMessage = "Name must be between 2 and 50 characters")]
@@ -33,7 +33,7 @@ namespace RestAPI.Models
     public class CreateUserRequest
     {
         [Required]
-        public string Name { get; set; } = string.Empty;
+        public string Name { get; set; }
 
         [Required]
         [EmailAddress]
@@ -68,7 +68,7 @@ namespace RestAPI.Models
 
     public class UserDto
     {
-        public string Id { get; set; } = string.Empty;
+        public int Id { get; set; }
         public string Name { get; set; } = string.Empty;
         public string Email { get; set; } = string.Empty;
         public int Age { get; set; }
