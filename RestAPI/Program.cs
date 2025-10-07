@@ -1,5 +1,6 @@
 using FluentValidation;
 using Microsoft.AspNetCore.Mvc;
+using RestAPI.Interfaces;
 using RestAPI.Middleware;
 using RestAPI.Services;
 using Serilog;
@@ -12,7 +13,8 @@ builder.Services.AddControllers();
 builder.Services.AddValidatorsFromAssemblyContaining<Program>();
 
 // Register services
-builder.Services.AddScoped<IUserService, UserService>();
+builder.Services.AddScoped<UserService, UserService>();
+builder.Services.AddScoped<IDatabaseService, DatabaseService>();
 
 // Configure API behavior
 builder.Services.Configure<ApiBehaviorOptions>(options =>

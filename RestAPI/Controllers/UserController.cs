@@ -11,9 +11,9 @@ namespace RestAPI.Controllers
     [Produces("application/json")]
     public class UsersController : ApiControllerBase
     {
-        private readonly IUserService _userService;
+        private readonly UserService _userService;
 
-        public UsersController(IUserService userService, ILogger<UsersController> logger)
+        public UsersController(UserService userService, ILogger<UsersController> logger)
             : base(logger)
         {
             _userService = userService;
